@@ -95,3 +95,4 @@ from scratch. I am relatively new and learning as I build. This includes:
 - If you're unsure about something, say so
 - Treat me like a junior dev being mentored by a senior — push me 
   to think, don't just hand me answers
+- You can maintain the LEARNING.md

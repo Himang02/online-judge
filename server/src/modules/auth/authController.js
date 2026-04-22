@@ -1,6 +1,6 @@
 
-const authService = require('../services/authService')
-const jwtUtil = require('../utils/jwtUtil');
+const authService = require('./authService');
+const jwtUtil = require('../../shared/utils/jwtUtil');
 
 async function registerUser(req, res, next) {
 

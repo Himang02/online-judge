@@ -140,3 +140,103 @@ Common types: `feat`, `fix`, `chore`, `docs`, `refactor`
 | `package-lock.json` | Auto-generated file that locks exact dependency versions |
 | `.gitkeep` | Empty placeholder file to force git to track an empty directory |
 | Health-check route | A simple `/ping` endpoint to verify the server is alive |
+
+---
+
+## Session 2 — Auth Module Planning & Prisma Setup
+
+### Progress Tracker — Auth Module
+
+| Milestone | Status |
+|-----------|--------|
+| Set up DB connection (Prisma + Neon) | ✅ Done |
+| Design User schema/model | ✅ Done |
+| Auth service (register + login logic, password hashing) | ⬜ Pending |
+| Auth controllers | ⬜ Pending |
+| Auth router | ⬜ Pending |
+| Auth middleware (JWT verification for protected routes) | ⬜ Pending |
+| Test all endpoints | ⬜ Pending |
+
+---
+
+### API Contract — Auth Endpoints
+
+**`POST /api/auth/register`**
+- Body: `name, username, email, password`
+- Success: `201 + { token, user: { id, username, email } }`
+- Failures: `400` (invalid input), `409` (username/email taken), `500` (server error)
+
+**`POST /api/auth/login`**
+- Body: `email, password`
+- Success: `200 + { token, user: { id, username, email } }`
+- Failures: `400` (invalid input), `401` (invalid credentials), `500` (server error)
+
+**Security note:** Login returns the same `401` whether the email doesn't exist or the password is wrong. This prevents attackers from enumerating valid emails (user enumeration attack).
+
+---
+
+### Design Decision — User Schema
+
+```prisma
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  name      String
+  role      Role     @default(USER)
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+```
+
+**Key decisions:**
+- `id` uses UUID instead of auto-increment integer — avoids exposing user count, prevents sequential scraping
+- `role` added proactively — ADMIN will be able to manage problems and test cases
+- No separate `salt` field — `bcryptjs` embeds the salt inside the hash string itself
+- Password hashing handled by `bcryptjs` in the service layer, never stored as plain text
+- Making someone ADMIN at this stage: done manually via SQL directly in the DB
+
+---
+
+### Prisma Setup — What Each Step Did
+
+| Step | Command | What it did |
+|------|---------|-------------|
+| 1 | `npm install @prisma/client` | Installed Prisma client (runtime query library) |
+| 2 | `npm install prisma --save-dev` | Installed Prisma CLI (dev tool for migrations, schema) |
+| 3 | `npx prisma init` | Created `schema.prisma` and `.env` template |
+| 4 | Updated `.env` | Added Neon connection string as `DATABASE_URL` |
+| 5 | `npx prisma db pull` | Confirmed DB connection worked (DB was empty) |
+| 6 | Defined `User` model | Wrote schema with fields, types, constraints |
+| 7 | `npx prisma migrate dev` | Generated SQL, ran it on Neon (created `User` table) |
+| 8 | `npx prisma generate` | Generated JS Prisma Client from schema for use in code |
+
+**Note:** Started with Prisma 7 but downgraded to Prisma 5 — Prisma 7 has breaking changes incompatible with plain JavaScript projects (requires TypeScript and driver adapters).
+
+---
+
+### Design Decision — Single Prisma Client Instance
+
+Created `src/configs/db.js` that instantiates and exports a single `PrismaClient` instance shared across the app.
+
+**Why a single instance:** Creating a new `PrismaClient` per request would open a new DB connection pool each time, exhausting DB connections quickly. One shared instance = one connection pool for the entire app.
+
+**Why `dotenv` loads in `server.js` not `db.js`:** The entry point is the right place to load environment config — before anything else runs. Loading it inside a module is fragile and order-dependent.
+
+---
+
+### Key Concepts Added
+
+| Concept | What it means |
+|---------|--------------|
+| UUID | Universally Unique Identifier — random string ID, safer than sequential integers |
+| Migration | A versioned SQL change applied to the DB — tracked in `prisma/migrations/` |
+| Connection pool | A set of reusable DB connections managed automatically by Prisma |
+| User enumeration | Security attack where different error messages reveal whether an email exists |
+| `.env.example` | Committed template showing required env variables without actual values |

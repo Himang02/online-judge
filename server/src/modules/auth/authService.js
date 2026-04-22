@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
-const prismaClient = require('../configs/db');
-const AppError = require('../utils/AppError');
+const prismaClient = require('../../shared/configs/db');
+const AppError = require('../../shared/utils/AppError');
 
 
 async function registerUser(name, username, email, password) {

@@ -151,11 +151,11 @@ Common types: `feat`, `fix`, `chore`, `docs`, `refactor`
 |-----------|--------|
 | Set up DB connection (Prisma + Neon) | ✅ Done |
 | Design User schema/model | ✅ Done |
-| Auth service (register + login logic, password hashing) | ⬜ Pending |
-| Auth controllers | ⬜ Pending |
-| Auth router | ⬜ Pending |
-| Auth middleware (JWT verification for protected routes) | ⬜ Pending |
-| Test all endpoints | ⬜ Pending |
+| Auth service (register + login logic, password hashing) | ✅ Done |
+| Auth controllers | ✅ Done |
+| Auth router | ✅ Done |
+| Auth middleware (JWT verification for protected routes) | ✅ Done |
+| Test all endpoints | ✅ Done |
 
 ---
 
@@ -240,3 +240,125 @@ Created `src/configs/db.js` that instantiates and exports a single `PrismaClient
 | Connection pool | A set of reusable DB connections managed automatically by Prisma |
 | User enumeration | Security attack where different error messages reveal whether an email exists |
 | `.env.example` | Committed template showing required env variables without actual values |
+
+---
+
+## Session 3 — Auth Module Implementation
+
+### What Was Built
+- Auth service (`registerUser`, `loginUser`) with bcryptjs password hashing
+- Auth controllers wiring HTTP layer to service layer
+- Input validation middleware using `express-validator`
+- JWT utility (`generateToken`, `verifyToken`) in `src/utils/jwtUtil.js`
+- Auth router mounting `POST /api/auth/register` and `POST /api/auth/login`
+- Auth middleware verifying Bearer tokens on protected routes
+- Global error handler in `app.js`
+
+---
+
+### Architecture — How a Request Flows Through Auth
+
+```
+Request
+  → express.json() (parse body)
+  → validation middleware (express-validator)
+  → controller (extract fields, call service, generate token)
+  → service (business logic, DB queries)
+  → response
+```
+
+For protected routes:
+```
+Request → authMiddleware (verify JWT) → controller → service → response
+```
+
+---
+
+### Design Decision — Error Handling Pattern
+
+**Problem:** Services throw errors (AppError or Prisma errors). Controllers shouldn't format different errors differently — that leads to inconsistency.
+
+**Solution:** 
+- Controllers call `next(err)` in catch blocks
+- Global error handler in `app.js` handles all errors consistently
+- `AppError` (has `statusCode`) → shows the message
+- Everything else → shows "Internal server error"
+
+```js
+// controller
+catch (err) {
+    next(err);
+}
+
+// app.js global error handler
+app.use((err, req, res, next) => {
+    const statusCode = err.statusCode || err.status || 500;
+    let message;
+    if (err.type === 'entity.parse.failed') message = 'Invalid JSON in request body';
+    else if (err.statusCode) message = err.message;
+    else message = 'Internal server error';
+    res.status(statusCode).json({ error: message });
+});
+```
+
+**Why this matters:** Raw Prisma errors, stack traces, and file paths must never reach the client — they expose internal system details to attackers.
+
+---
+
+### Design Decision — Validation Middleware Separation
+
+Validation rules live in `src/middlewares/validators/authValidators.js`, not in controllers.
+
+**Why:** Controllers should only handle HTTP — extracting fields, calling services, sending responses. Validation is a separate concern that runs before the controller.
+
+**Register vs Login validation are separate** — login validation is more lenient on password (no min length) because users registered before the rule existed could get locked out.
+
+**`.bail()`** — stops validation chain on first failure for a field. Prevents duplicate error messages (e.g. "required" AND "too short" for an empty field).
+
+---
+
+### Security — Timing Attack Prevention
+
+If "email not found" returns in 5ms and "wrong password" returns in 50ms, an attacker can measure response times to determine which case they hit — even with identical error messages.
+
+**Fix:** Always run bcrypt compare regardless of whether the user exists:
+```js
+if (!user) {
+    await bcrypt.compare(password, '$2b$10$fakehashfakehashfakehashfakehash');
+    throw new AppError('Invalid email or password', 401);
+}
+```
+
+Both code paths now take ~50ms. Implemented in `loginUser` service.
+
+---
+
+### Auth Middleware Pattern
+
+```js
+function authMiddleware(req, res, next) {
+    const authHeader = req.headers.authorization; // "Bearer <token>"
+    const token = authHeader.split(' ')[1];
+    const decoded = jwtUtil.verifyToken(token);
+    req.user = decoded; // attach user to request for downstream handlers
+    next();
+}
+```
+
+- Token sent in `Authorization: Bearer <token>` header
+- Decoded payload attached to `req.user` — available in all subsequent middleware/controllers
+- `401` for missing/invalid token, `403` for valid token but insufficient permissions (future role check)
+
+---
+
+### Key Concepts Added
+
+| Concept | What it means |
+|---------|--------------|
+| Bearer token | Standard format for sending JWT in HTTP headers: `Authorization: Bearer <token>` |
+| `next(err)` | Passes error to Express global error handler, skipping all regular middleware |
+| Error handler middleware | Four-parameter middleware `(err, req, res, next)` — Express identifies it by signature |
+| Timing attack | Attack where response time differences reveal which error branch was hit |
+| `express-validator` | Library for declarative input validation as middleware |
+| `.bail()` | Stops validation chain on first failure — prevents duplicate error messages |
+| JWT secret rotation | Changing the secret immediately invalidates all existing tokens |

@@ -362,3 +362,141 @@ function authMiddleware(req, res, next) {
 | `express-validator` | Library for declarative input validation as middleware |
 | `.bail()` | Stops validation chain on first failure — prevents duplicate error messages |
 | JWT secret rotation | Changing the secret immediately invalidates all existing tokens |
+
+---
+
+## Session 4 — Architecture Planning & Modular Monolith Refactor
+
+### What Was Done
+- Refactored flat folder structure to modular monolith architecture
+- Planned execution engine architecture, flow, and technology decisions
+
+---
+
+### Modular Monolith vs Flat Structure
+
+**Problem with flat structure at scale:**
+All files pile into the same `routes/`, `controllers/`, `services/` folders regardless of which feature they belong to. Hard to navigate, hard to delete a module, hard to understand ownership.
+
+**Modular monolith groups by feature:**
+```
+src/
+  modules/
+    auth/
+      authRoutes.js
+      authController.js
+      authService.js
+      authValidators.js
+    problems/
+      problemRoutes.js
+      ...
+  shared/
+    middlewares/   → used across all modules (authMiddleware)
+    utils/         → generic helpers (AppError, jwtUtil)
+    configs/       → DB connection
+```
+
+**Rule:** If something is specific to one module → lives inside that module. If used across multiple modules → lives in `shared/`.
+
+**Benefit:** If you ever extract a module into a microservice, boundaries are already clean — no hidden dependencies scattered across the codebase.
+
+---
+
+### Execution Engine — Architecture Decisions
+
+| Decision | Choice | Reason |
+|----------|--------|--------|
+| Communication | BullMQ + Redis queue | Async, resilient, scalable — no hanging HTTP connections |
+| Languages | C, C++, Java, Python | Common competitive programming languages |
+| Sandboxing | Docker per submission | Isolation, resource limits, disposable |
+| Test cases | Text in DB, bundled in queue job | Simple for now, no shared filesystem needed |
+| Resource limits | Per-problem | Different problems need different time/memory limits |
+| DB writes | Main app only | Execution service stays stateless, no DB knowledge |
+
+---
+
+### Execution Engine — Complete Flow
+
+```
+1.  User submits code → POST /api/submissions
+2.  Main app creates Submission in DB (verdict: PENDING)
+3.  Main app pushes job to Redis queue (BullMQ)
+    Job: { submissionId, code, language, testCases, timeLimit, memoryLimit }
+4.  Main app returns 202 Accepted immediately
+5.  Execution worker picks job from queue
+6.  Worker writes code to temp file
+7.  Worker spins up Docker container (no network, memory/time limits enforced)
+8.  Container compiles and runs code against each test case
+9.  Worker compares actual vs expected output
+10. Worker determines verdict (AC / WA / TLE / MLE / RTE / CE / IE)
+11. Worker publishes verdict to Redis pub/sub channel
+12. Main app (subscribed) receives verdict
+13. Main app updates Submission in DB
+14. Main app emits verdict to user via WebSocket
+15. Browser updates in real-time
+```
+
+---
+
+### Why Execution Service Doesn't Write to DB
+
+The execution service's only job is to run code and return a verdict. Giving it DB access would:
+- Couple it to your DB schema — any schema change breaks the execution service
+- Violate the single responsibility principle
+- Make it harder to replace or scale independently
+
+**Pattern:** Execution service publishes to Redis pub/sub → Main app updates DB. Main app is the single writer to DB.
+
+---
+
+### Verdict Types
+
+| Verdict | Meaning |
+|---------|---------|
+| PENDING | In queue, not yet processed |
+| AC | Accepted — all test cases passed |
+| WA | Wrong Answer — output doesn't match |
+| TLE | Time Limit Exceeded |
+| MLE | Memory Limit Exceeded |
+| RTE | Runtime Error — crash during execution |
+| CE | Compilation Error — code didn't compile |
+| IE | Internal Error — judge-side failure |
+
+---
+
+### Why Message Queue over Direct HTTP
+
+| | Direct HTTP | Message Queue |
+|-|-------------|---------------|
+| Caller | Waits for response (hangs) | Fire and forget (202 immediately) |
+| Traffic spikes | Overwhelms service | Queue buffers the load |
+| Worker crash | Job lost | Job stays in queue, retried |
+| Scaling | Scale entire app | Scale workers independently |
+
+This pattern is called **asynchronous messaging / event-driven architecture**.
+
+---
+
+### Redis — Two Roles in This System
+
+| Role | What it does |
+|------|-------------|
+| BullMQ Queue | Holds pending jobs — execution worker consumes from here |
+| Pub/Sub channel | Broadcasts verdict when done — main app listens here |
+
+Same Redis instance, two different uses.
+
+---
+
+### Key Concepts Added
+
+| Concept | What it means |
+|---------|--------------|
+| Modular monolith | Monolith organized by feature modules with clear boundaries |
+| Message queue | Buffer between producer and consumer — decouples timing |
+| BullMQ | Node.js job queue library built on Redis |
+| Redis pub/sub | Publish/subscribe messaging — one publisher, many subscribers |
+| WebSocket | Persistent browser-server connection for real-time updates |
+| Sandbox | Isolated environment that prevents code from affecting the host |
+| Stateless service | Service with no DB/filesystem — only processes what's in the job |
+| 202 Accepted | HTTP status meaning "request received, processing async" |

@@ -12,7 +12,8 @@ A comprehensive reference of all concepts, decisions, and patterns covered durin
 5. [Backend Setup](#backend-setup)
 6. [Database](#database)
 7. [Auth Module](#auth-module)
-8. [Concepts Glossary](#concepts-glossary)
+8. [Execution Engine](#execution-engine)
+9. [Concepts Glossary](#concepts-glossary)
 
 ---
 
@@ -394,6 +395,107 @@ Register/Login → Service creates/verifies user → Controller generates JWT �
 
 ---
 
+## Execution Engine
+
+### Overview
+
+The execution engine is an isolated service that runs user-submitted code safely and returns a verdict. It is separate from the main app and communicates via a message queue.
+
+### Repository Structure
+
+```
+Online Judge/
+  server/              ← main app (API, DB, WebSocket)
+  execution-service/   ← code runner (queue worker, Docker executor)
+  client/              ← frontend (future)
+  [Redis]              ← external queue + pub/sub (not in repo)
+```
+
+### Architecture Decisions
+
+| Decision | Choice | Reason |
+|----------|--------|--------|
+| Queue | BullMQ + Redis | Async, resilient, Node.js native |
+| Sandboxing | Docker per submission | Isolation, resource limits, disposable |
+| Languages | C, C++, Java, Python | Common competitive programming languages |
+| Test cases | Text in DB, bundled in queue job | No shared filesystem needed |
+| Resource limits | Per-problem | Different problems need different limits |
+| DB writes | Main app only | Execution service stays stateless |
+
+### Complete Flow
+
+```
+1.  POST /api/submissions → main app
+2.  Submission created in DB (verdict: PENDING)
+3.  Job pushed to Redis queue via BullMQ
+    { submissionId, code, language, testCases, timeLimit, memoryLimit }
+4.  202 Accepted returned to client immediately
+5.  Execution worker picks job from queue
+6.  Code written to temp file
+7.  Docker container started (no network, memory/time limits enforced)
+8.  Code compiled + run against each test case
+9.  Actual output compared to expected output
+10. Verdict determined
+11. Verdict published to Redis pub/sub
+12. Main app receives verdict via pub/sub
+13. Main app updates Submission in DB
+14. Main app pushes verdict to client via WebSocket
+15. Browser updates in real-time
+```
+
+### Why Execution Service Doesn't Write to DB
+
+Single responsibility — the execution service only runs code and returns results. DB access would couple it to the schema and violate clean service boundaries. Main app is the single writer to DB.
+
+### Verdict Types
+
+| Verdict | Meaning |
+|---------|---------|
+| PENDING | In queue, not yet processed |
+| AC | Accepted — all test cases passed |
+| WA | Wrong Answer — output mismatch |
+| TLE | Time Limit Exceeded |
+| MLE | Memory Limit Exceeded |
+| RTE | Runtime Error — crash during execution |
+| CE | Compilation Error |
+| IE | Internal Error — judge-side failure |
+
+### Docker Safety Flags
+
+| Flag | What it prevents |
+|------|-----------------|
+| `--network none` | Network access |
+| `--memory` | Memory limit |
+| `--pids-limit` | Process spawning |
+| `--stop-timeout` + kill | Infinite loops (TLE) |
+| Read-only mount | Filesystem writes |
+
+### Redis — Two Roles
+
+| Role | Used for |
+|------|---------|
+| BullMQ queue | Job delivery from main app to execution worker |
+| Pub/sub channel | Verdict delivery from execution worker to main app |
+
+### Execution Service Milestone Tracker
+
+| Milestone | Status |
+|-----------|--------|
+| Install Docker | ⬜ Pending |
+| Set up Redis locally | ⬜ Pending |
+| Initialize execution-service/ project | ⬜ Pending |
+| Problem + TestCase schema in DB | ⬜ Pending |
+| Submission API (POST /api/submissions) | ⬜ Pending |
+| BullMQ producer in main app | ⬜ Pending |
+| BullMQ worker in execution service | ⬜ Pending |
+| Docker executor per language | ⬜ Pending |
+| Verdict comparison logic | ⬜ Pending |
+| Redis pub/sub verdict publisher | ⬜ Pending |
+| Main app pub/sub subscriber + DB update | ⬜ Pending |
+| WebSocket real-time verdict to client | ⬜ Pending |
+
+---
+
 ## Concepts Glossary
 
 | Concept | What it means |
@@ -422,3 +524,12 @@ Register/Login → Service creates/verifies user → Controller generates JWT �
 | `express-validator` | Library for declarative input validation as Express middleware |
 | `.bail()` | Stops validation chain on first failure — prevents duplicate error messages |
 | JWT secret rotation | Changing the secret immediately invalidates all existing tokens |
+| Modular monolith | Monolith organized by feature modules with clean boundaries |
+| Message queue | Buffer between producer and consumer — decouples timing |
+| BullMQ | Node.js job queue library built on Redis |
+| Redis pub/sub | Publish/subscribe messaging — one publisher, many subscribers |
+| WebSocket | Persistent browser-server connection for real-time updates |
+| Sandbox | Isolated environment that prevents code from affecting the host |
+| Stateless service | Service with no DB/filesystem — only processes what's in the job |
+| 202 Accepted | HTTP status — request received, processing will happen asynchronously |
+| Event-driven architecture | System where components communicate via events/messages, not direct calls |

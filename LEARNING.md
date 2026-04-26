@@ -365,11 +365,32 @@ function authMiddleware(req, res, next) {
 
 ---
 
-## Session 4 — Architecture Planning & Modular Monolith Refactor
+## Session 4 — Architecture Planning, Modular Monolith Refactor & Bug Fixes
 
 ### What Was Done
 - Refactored flat folder structure to modular monolith architecture
 - Planned execution engine architecture, flow, and technology decisions
+- Fixed auth middleware error handling — now uses `AppError` and `return next(err)` consistently
+
+---
+
+### Bug Fix — Auth Middleware Error Handling
+
+**Problem:** Auth middleware was returning responses directly (`res.status(401).json(...)`) instead of using `next(err)`. This bypassed the global error handler — inconsistent with how controllers handle errors.
+
+**Fix:** Use `return next(new AppError(..., 401))` for all error cases.
+
+**Why `return` is needed:**
+`next()` is a regular synchronous function call. After it returns, execution continues in your function. Without `return`, code after `next(error)` still runs — potentially crashing or sending duplicate responses.
+
+```js
+// Wrong — execution continues after next(error)
+next(error);
+authHeader.split(' ')[1]; // still runs, crashes if authHeader is undefined
+
+// Correct — exits function immediately
+return next(error);
+```
 
 ---
 

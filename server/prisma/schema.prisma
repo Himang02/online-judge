@@ -13,6 +13,8 @@ datasource db {
   url = env("DATABASE_URL")
 }
 
+ 
+// User Table
 model User {
   id String @id @default(uuid())
   username String @unique
@@ -22,9 +24,59 @@ model User {
   password String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  problems    Problem[]
 }
 
 enum Role {
   USER
   ADMIN
+}
+
+
+// Problem Table - id, title, description, difficulty, tags, createdBy, createdAt, updatedAt
+model Problem {
+  id String @id @default(uuid())
+  title String @unique
+  description String
+  difficulty Difficulty
+  
+  createdBy String
+  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tags Tag[]
+  testCases   TestCase[]
+
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+
+// TestCase model
+model TestCase {
+  id String @id @default(uuid())
+  
+  problemId String
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+
+  input String
+  expectedOutput String
+
+  isSample Boolean
+}
+
+// Tag table
+model Tag{
+  id String @id @default(uuid())
+  name String @unique
+  problems Problem[]
 }

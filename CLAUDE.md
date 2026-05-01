@@ -13,7 +13,6 @@ from scratch. I am relatively new and learning as I build. This includes:
 - Problem management
 - Code submission & execution engine (sandboxed)
 - Real-time verdicts
-- Contests & leaderboard
 - Admin panel
 - End-to-end deployment
 

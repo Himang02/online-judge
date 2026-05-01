@@ -26,7 +26,6 @@ Building a production-grade Online Judge (like LeetCode / Codeforces) from scrat
 - Problem management
 - Code submission & execution engine (sandboxed)
 - Real-time verdicts
-- Contests & leaderboard
 - Admin panel
 - End-to-end deployment
 

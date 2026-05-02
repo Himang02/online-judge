@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Problem" ADD COLUMN     "memoryLimit" INTEGER NOT NULL DEFAULT 256,
+ADD COLUMN     "timeLimit" INTEGER NOT NULL DEFAULT 2000;

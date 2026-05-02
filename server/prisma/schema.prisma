@@ -39,8 +39,10 @@ model Problem {
   id String @id @default(uuid())
   title String @unique
   description String
-  difficulty Difficulty
-  status     ProblemStatus @default(DRAFT)
+  difficulty  Difficulty
+  status      ProblemStatus @default(DRAFT)
+  timeLimit   Int           @default(2000)
+  memoryLimit Int           @default(256)
   
   createdBy String
   creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)

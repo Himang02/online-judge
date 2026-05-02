@@ -1,11 +1,13 @@
 const prismaClient = require('../../shared/configs/db');
 const AppError = require('../../shared/utils/AppError');
+const { submissionQueue } = require('../../shared/configs/queue');
 
 async function createSubmission(data) {
     const { userId, problemId, code, language } = data;
 
     const problem = await prismaClient.problem.findUnique({
         where: { id: problemId },
+        include: { testCases: true },
     });
 
     if (!problem) {
@@ -16,7 +18,11 @@ async function createSubmission(data) {
         throw new AppError('Problem not found', 404);
     }
 
-    return prismaClient.submission.create({
+    if (problem.testCases.length === 0) {
+        throw new AppError('Problem has no test cases', 400);
+    }
+
+    const submission = await prismaClient.submission.create({
         data: {
             userId,
             problemId,
@@ -24,6 +30,20 @@ async function createSubmission(data) {
             language,
         },
     });
+
+    await submissionQueue.add('judge', {
+        submissionId: submission.id,
+        code,
+        language,
+        timeLimit: problem.timeLimit,
+        memoryLimit: problem.memoryLimit,
+        testCases: problem.testCases.map((tc) => ({
+            input: tc.input,
+            expectedOutput: tc.expectedOutput,
+        })),
+    });
+
+    return submission;
 }
 
 async function getSubmissionById(submissionId, userId) {

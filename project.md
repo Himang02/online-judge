@@ -12,8 +12,9 @@ A comprehensive reference of all concepts, decisions, and patterns covered durin
 5. [Backend Setup](#backend-setup)
 6. [Database](#database)
 7. [Auth Module](#auth-module)
-8. [Execution Engine](#execution-engine)
-9. [Concepts Glossary](#concepts-glossary)
+8. [Problem Module](#problem-module)
+9. [Execution Engine](#execution-engine)
+10. [Concepts Glossary](#concepts-glossary)
 
 ---
 
@@ -391,6 +392,110 @@ Register/Login → Service creates/verifies user → Controller generates JWT �
 | Auth router | ✅ Done |
 | Auth middleware (JWT verification for protected routes) | ✅ Done |
 | Test all endpoints | ✅ Done |
+
+---
+
+## Problem Module
+
+### API Contract
+
+**`GET /api/problems`** — Public
+
+| | Detail |
+|-|--------|
+| Auth | None |
+| Query params | `tag` (optional) |
+| Success | `200 + [{ id, title, difficulty, tags }]` |
+| Server error | `500` |
+
+---
+
+**`GET /api/problems/:id`** — Public
+
+| | Detail |
+|-|--------|
+| Auth | None |
+| Success | `200 + { id, title, description, difficulty, tags, testCases (sample only) }` |
+| Not found | `404` |
+| Server error | `500` |
+
+---
+
+**`POST /api/problems`** — Problem Setter only
+
+| | Detail |
+|-|--------|
+| Auth | `PROBLEM_SETTER` |
+| Body | `title, description, difficulty, tagIds[]` |
+| Success | `201 + { id, title, difficulty, tags }` |
+| Invalid input | `400` |
+| Unauthorized | `401` |
+| Forbidden | `403` |
+| Server error | `500` |
+
+---
+
+**`PUT /api/problems/:id`** — Owner only
+
+| | Detail |
+|-|--------|
+| Auth | `PROBLEM_SETTER` (creator only) |
+| Body | `title, description, difficulty, tagIds[]` (all optional) |
+| Success | `200 + updated problem` |
+| Invalid input | `400` |
+| Unauthorized | `401` |
+| Forbidden | `403` |
+| Not found | `404` |
+| Server error | `500` |
+
+---
+
+**`DELETE /api/problems/:id`** — Owner only
+
+| | Detail |
+|-|--------|
+| Auth | `PROBLEM_SETTER` (creator only) |
+| Success | `204` |
+| Unauthorized | `401` |
+| Forbidden | `403` |
+| Not found | `404` |
+| Server error | `500` |
+
+---
+
+**`GET /api/tags`** — Public
+
+| | Detail |
+|-|--------|
+| Auth | None |
+| Success | `200 + [{ id, name }]` |
+| Server error | `500` |
+
+---
+
+**`POST /api/tags`** — Problem Setter only
+
+| | Detail |
+|-|--------|
+| Auth | `PROBLEM_SETTER` |
+| Body | `name` |
+| Success | `201 + { id, name }` |
+| Invalid input | `400` |
+| Conflict | `409` (tag already exists) |
+| Unauthorized | `401` |
+| Forbidden | `403` |
+| Server error | `500` |
+
+### Problem Module Milestone Tracker
+
+| Milestone | Status |
+|-----------|--------|
+| Problem + Tag schema in DB | ✅ Done |
+| Rename ADMIN → PROBLEM_SETTER | ✅ Done |
+| roleMiddleware (shared) | ⬜ Pending |
+| Tag routes + controller + service | ⬜ Pending |
+| Problem routes + controller + service + validator | ⬜ Pending |
+| Test all endpoints | ⬜ Pending |
 
 ---
 

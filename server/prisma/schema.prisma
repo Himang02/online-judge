@@ -26,6 +26,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   problems    Problem[]
+  submissions Submission[]
 }
 
 enum Role {
@@ -51,8 +52,9 @@ model Problem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tags Tag[]
+  tags        Tag[]
   testCases   TestCase[]
+  submissions Submission[]
 
 }
 
@@ -80,6 +82,41 @@ model TestCase {
   expectedOutput String
 
   isSample Boolean
+}
+
+// Submission model
+model Submission {
+  id        String   @id @default(uuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId String
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  code      String
+  language  Language
+  verdict   Verdict  @default(PENDING)
+
+  createdAt DateTime @default(now())
+}
+
+enum Language {
+  C
+  CPP
+  JAVA
+  PYTHON
+}
+
+enum Verdict {
+  PENDING
+  AC
+  WA
+  TLE
+  MLE
+  RTE
+  CE
+  IE
 }
 
 // Tag table

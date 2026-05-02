@@ -1,7 +1,9 @@
 const express = require('express');
 const app = express();
 
-const authRoutes = require('./modules/auth/authRoutes')
+const authRoutes = require('./modules/auth/authRoutes');
+const problemRoutes = require('./modules/problems/problemRoutes');
+const tagRoutes = require('./modules/problems/tagRoutes');
 
 app.use(express.json());
 
@@ -10,6 +12,8 @@ app.get('/ping', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/problems', problemRoutes);
+app.use('/api/tags', tagRoutes);
 
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || err.status || 500;

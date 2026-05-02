@@ -4,6 +4,7 @@ const app = express();
 const authRoutes = require('./modules/auth/authRoutes');
 const problemRoutes = require('./modules/problems/problemRoutes');
 const tagRoutes = require('./modules/problems/tagRoutes');
+const submissionRoutes = require('./modules/submissions/submissionRoutes');
 
 app.use(express.json());
 
@@ -14,6 +15,7 @@ app.get('/ping', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/problems', problemRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/submissions', submissionRoutes);
 
 app.use((err, req, res, next) => {
     const statusCode = err.statusCode || err.status || 500;

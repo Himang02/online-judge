@@ -25,7 +25,7 @@ queueEvents.on('failed', async ({ jobId }) => {
         if (!job) return;
         const { submissionId } = job.data;
         await prismaClient.submission.updateMany({
-            where: { id: submissionId, verdict: 'PENDING'  },
+            where: { id: submissionId, verdict: 'PENDING'},
             data: { verdict: 'IE' },
         });
         console.log(`[QueueEvents] Submission ${submissionId} marked IE (job failed)`);

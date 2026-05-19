@@ -8,6 +8,7 @@ function notify(submissionId, verdict) {
     const res = clients.get(submissionId);
     if (!res) return;
     res.write(`data: ${JSON.stringify({ verdict })}\n\n`);
+    res.end();
     unsubscribe(submissionId);
 }
 

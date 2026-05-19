@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>OJ API Tester</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #1a1a1a; color: #e0e0e0; display: flex; height: 100vh; overflow: hidden; }
+
+    /* Sidebar */
+    #sidebar { width: 300px; min-width: 220px; background: #111; border-right: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
+    #sidebar h2 { padding: 14px 16px; font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #222; }
+    #endpoint-list { overflow-y: auto; flex: 1; }
+    .endpoint-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #1e1e1e; display: flex; align-items: center; gap: 8px; }
+    .endpoint-item:hover { background: #1e1e1e; }
+    .endpoint-item.active { background: #222; border-left: 3px solid #4a9eff; }
+    .method { font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 3px; min-width: 48px; text-align: center; }
+    .GET    { background: #1a4a1a; color: #4caf50; }
+    .POST   { background: #1a3a4a; color: #4a9eff; }
+    .PUT    { background: #4a3a1a; color: #ff9800; }
+    .PATCH  { background: #3a1a4a; color: #ce93d8; }
+    .DELETE { background: #4a1a1a; color: #ef5350; }
+    .path-label { font-size: 12px; color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .auth-badge { font-size: 10px; color: #888; margin-left: auto; }
+
+    /* Main panel */
+    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    #top-bar { padding: 10px 16px; background: #151515; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    #top-bar .endpoint-title { font-size: 14px; color: #fff; flex: 1; }
+    #base-url { background: #222; border: 1px solid #444; color: #ccc; padding: 5px 10px; border-radius: 4px; font-family: monospace; font-size: 12px; width: 240px; }
+    #auth-token { background: #222; border: 1px solid #444; color: #ccc; padding: 5px 10px; border-radius: 4px; font-family: monospace; font-size: 12px; flex: 1; min-width: 160px; }
+    #send-btn { background: #4a9eff; color: #000; border: none; padding: 6px 18px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 13px; }
+    #send-btn:hover { background: #6ab4ff; }
+
+    #path-params { flex-wrap: wrap; gap: 8px; padding: 8px 14px; background: #151515; border-bottom: 1px solid #222; align-items: center; font-size: 12px; }
+    #path-params label { color: #888; }
+    #path-params input { background: #222; border: 1px solid #444; color: #ccc; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 12px; width: 220px; }
+
+    #panels { display: flex; flex: 1; overflow: hidden; }
+    .panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .panel + .panel { border-left: 1px solid #333; }
+    .panel-header { padding: 8px 14px; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; background: #151515; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 8px; }
+    .panel-header span { flex: 1; }
+    .clear-btn { font-size: 10px; background: none; border: none; color: #555; cursor: pointer; }
+    .clear-btn:hover { color: #aaa; }
+
+    textarea { flex: 1; background: #1a1a1a; color: #e0e0e0; border: none; resize: none; font-family: monospace; font-size: 13px; padding: 14px; outline: none; }
+    #response-box { flex: 1; background: #1a1a1a; font-family: monospace; font-size: 13px; padding: 14px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+
+    .status-ok  { color: #4caf50; }
+    .status-err { color: #ef5350; }
+    .status-line { margin-bottom: 8px; font-weight: bold; }
+    .hint { color: #555; font-style: italic; }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>Endpoints</h2>
+  <div id="endpoint-list"></div>
+</div>
+
+<div id="main">
+  <div id="top-bar">
+    <input id="base-url" value="http://localhost:3000" placeholder="Base URL" />
+    <input id="auth-token" placeholder="Bearer token (auto-filled on login)" />
+    <div class="endpoint-title" id="current-endpoint">Select an endpoint</div>
+    <button id="send-btn">Send</button>
+  </div>
+  <div id="path-params" style="display:none"></div>
+  <div id="panels">
+    <div class="panel">
+      <div class="panel-header">
+        <span>Request Body (JSON)</span>
+        <button class="clear-btn" onclick="document.getElementById('request-body').value=''">clear</button>
+      </div>
+      <textarea id="request-body" placeholder="no body required"></textarea>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span>Response</span>
+        <button class="clear-btn" onclick="document.getElementById('response-box').innerHTML='<span class=hint>response will appear here</span>'">clear</button>
+      </div>
+      <div id="response-box"><span class="hint">response will appear here</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ENDPOINTS = [
+  // Health
+  { method: 'GET',    path: '/ping',                               auth: false, body: null,  label: 'Health Check' },
+
+  // Auth
+  { method: 'POST',   path: '/api/auth/register',                  auth: false, label: 'Register',
+    body: { name: 'Test User', username: 'testuser', email: 'test@example.com', password: 'password123' } },
+  { method: 'POST',   path: '/api/auth/login',                     auth: false, label: 'Login',
+    body: { email: 'test@example.com', password: 'password123' } },
+
+  // Tags
+  { method: 'GET',    path: '/api/tags',                           auth: false, body: null,  label: 'List Tags' },
+  { method: 'POST',   path: '/api/tags',                           auth: true,  label: 'Create Tag',
+    body: { name: 'Dynamic Programming' } },
+  { method: 'DELETE', path: '/api/tags/:id',                       auth: true,  body: null,  label: 'Delete Tag',         params: ['id'] },
+
+  // Problems
+  { method: 'GET',    path: '/api/problems',                       auth: false, body: null,  label: 'List Problems' },
+  { method: 'GET',    path: '/api/problems/:id',                   auth: false, body: null,  label: 'Get Problem',        params: ['id'] },
+  { method: 'POST',   path: '/api/problems',                       auth: true,  label: 'Create Problem',
+    body: { title: 'Two Sum', description: 'Given an array...', difficulty: 'EASY', tagIds: [] } },
+  { method: 'PUT',    path: '/api/problems/:id',                   auth: true,  label: 'Update Problem',     params: ['id'],
+    body: { title: 'Updated Title', difficulty: 'MEDIUM' } },
+  { method: 'DELETE', path: '/api/problems/:id',                   auth: true,  body: null,  label: 'Delete Problem',     params: ['id'] },
+  { method: 'PATCH',  path: '/api/problems/:id/publish',           auth: true,  body: null,  label: 'Publish Problem',    params: ['id'] },
+
+  // Test Cases
+  { method: 'POST',   path: '/api/problems/:problemId/testcases',  auth: true,  label: 'Add Test Case',      params: ['problemId'],
+    body: { input: '2 7\n9', expectedOutput: '0 1', isSample: true } },
+  { method: 'PUT',    path: '/api/problems/testcases/:id',         auth: true,  label: 'Update Test Case',   params: ['id'],
+    body: { input: '3 7\n9', expectedOutput: '0 2' } },
+  { method: 'DELETE', path: '/api/problems/testcases/:id',         auth: true,  body: null,  label: 'Delete Test Case',   params: ['id'] },
+
+  // Submissions
+  { method: 'POST',   path: '/api/submissions',                    auth: true,  label: 'Submit Code',
+    body: { problemId: '', code: 'print("hello")', language: 'PYTHON' } },
+  { method: 'GET',    path: '/api/submissions',                    auth: true,  body: null,  label: 'My Submissions' },
+  { method: 'GET',    path: '/api/submissions/problem/:problemId', auth: true,  body: null,  label: 'Submissions for Problem', params: ['problemId'] },
+  { method: 'GET',    path: '/api/submissions/:id',                auth: true,  body: null,  label: 'Get Submission',     params: ['id'] },
+  { method: 'GET',    path: '/api/submissions/:id/events',         auth: true,  body: null,  label: 'Watch Verdict (SSE)', params: ['id'], sse: true },
+];
+
+let selected = null;
+
+function render() {
+  const list = document.getElementById('endpoint-list');
+  list.innerHTML = '';
+  ENDPOINTS.forEach((ep, i) => {
+    const div = document.createElement('div');
+    div.className = 'endpoint-item' + (i === selected ? ' active' : '');
+    div.innerHTML = `<span class="method ${ep.method}">${ep.method}</span><span class="path-label" title="${ep.path}">${ep.label || ep.path}</span>${ep.auth ? '<span class="auth-badge">lock</span>' : ''}`;
+    div.onclick = () => select(i);
+    list.appendChild(div);
+  });
+}
+
+function select(i) {
+  selected = i;
+  render();
+  const ep = ENDPOINTS[i];
+  document.getElementById('current-endpoint').textContent = `${ep.method} ${ep.path}`;
+  document.getElementById('request-body').value = ep.body ? JSON.stringify(ep.body, null, 2) : '';
+
+  const paramsDiv = document.getElementById('path-params');
+  paramsDiv.innerHTML = '';
+  if (ep.params && ep.params.length) {
+    paramsDiv.style.display = 'flex';
+    ep.params.forEach(p => {
+      const label = document.createElement('label');
+      label.textContent = `:${p} =`;
+      const input = document.createElement('input');
+      input.id = `param-${p}`;
+      input.placeholder = `enter ${p}`;
+      paramsDiv.appendChild(label);
+      paramsDiv.appendChild(input);
+    });
+  } else {
+    paramsDiv.style.display = 'none';
+  }
+
+  document.getElementById('response-box').innerHTML = '<span class="hint">press Send to execute</span>';
+}
+
+function buildPath(ep) {
+  let p = ep.path;
+  (ep.params || []).forEach(param => {
+    const val = document.getElementById(`param-${param}`)?.value || `:${param}`;
+    p = p.replace(`:${param}`, encodeURIComponent(val));
+  });
+  return p;
+}
+
+async function sendSSE(url, token, box) {
+  box.innerHTML = '<span class="hint">connected, waiting for verdict...</span>';
+  try {
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!res.ok) { box.innerHTML = `<span class="status-err">HTTP ${res.status}</span>`; return; }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        try {
+          const payload = JSON.parse(line.slice(5).trim());
+          const verdict = payload.verdict;
+          const cls = verdict === 'AC' ? 'status-ok' : 'status-err';
+          box.innerHTML += `\n<span class="${cls}">► verdict: ${verdict}</span>`;
+        } catch {}
+      }
+    }
+    box.innerHTML += '\n<span class="hint">stream closed</span>';
+  } catch (e) {
+    box.innerHTML = `<span class="status-err">SSE Error: ${escapeHtml(e.message)}</span>`;
+  }
+}
+
+document.getElementById('send-btn').onclick = async () => {
+  if (selected === null) return;
+  const ep = ENDPOINTS[selected];
+  const base = document.getElementById('base-url').value.replace(/\/$/, '');
+  const token = document.getElementById('auth-token').value.trim();
+  const bodyText = document.getElementById('request-body').value.trim();
+  const url = base + buildPath(ep);
+  const box = document.getElementById('response-box');
+
+  if (ep.sse) { sendSSE(url, token, box); return; }
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const opts = { method: ep.method, headers };
+  if (!['GET', 'DELETE'].includes(ep.method) && bodyText) {
+    try { opts.body = JSON.stringify(JSON.parse(bodyText)); }
+    catch { opts.body = bodyText; }
+  }
+
+  box.innerHTML = '<span class="hint">sending...</span>';
+
+  try {
+    const res = await fetch(url, opts);
+    const ct = res.headers.get('content-type') || '';
+    const data = ct.includes('json') ? await res.json() : await res.text();
+    const statusClass = res.ok ? 'status-ok' : 'status-err';
+    const body = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    box.innerHTML = `<div class="status-line ${statusClass}">HTTP ${res.status} ${res.statusText}</div>${escapeHtml(body)}`;
+
+    if (ep.path === '/api/auth/login' && data?.token) {
+      document.getElementById('auth-token').value = data.token;
+    }
+
+    // After submit, auto-start SSE stream for the new submission
+    if (ep.path === '/api/submissions' && ep.method === 'POST' && res.ok && data?.submission?.id) {
+      const submissionId = data.submission.id;
+      box.innerHTML += `\n\n<span class="hint">auto-watching verdict for ${submissionId}...</span>`;
+      const sseUrl = `${base}/api/submissions/${encodeURIComponent(submissionId)}/events`;
+      sendSSE(sseUrl, token, { innerHTML: '', set innerHTML(v) { box.innerHTML += v; } });
+    }
+  } catch (e) {
+    box.innerHTML = `<span class="status-err">Error: ${escapeHtml(e.message)}</span>`;
+  }
+};
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+render();
+</script>
+</body>
+</html>

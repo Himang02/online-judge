@@ -1,11 +1,13 @@
 const express = require('express');
 const app = express();
+const path = require('path');
 
 const authRoutes = require('./modules/auth/authRoutes');
 const problemRoutes = require('./modules/problems/problemRoutes');
 const tagRoutes = require('./modules/problems/tagRoutes');
 const submissionRoutes = require('./modules/submissions/submissionRoutes');
 
+app.use(express.static(path.join(__dirname, '../..')));
 app.use(express.json());
 
 app.get('/ping', (req, res) => {

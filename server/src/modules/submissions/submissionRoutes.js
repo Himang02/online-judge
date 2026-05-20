@@ -11,5 +11,6 @@ router.post('/', createSubmissionValidators, submissionController.createSubmissi
 router.get('/', submissionController.getUserSubmissions);
 router.get('/problem/:problemId', submissionController.getUserSubmissionsForProblem);
 router.get('/:id', submissionController.getSubmissionById);
+router.get('/:id/events', submissionController.streamVerdict);
 
 module.exports = router;

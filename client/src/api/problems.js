@@ -20,3 +20,6 @@ export const addTestCase = (problemId, data) =>
 
 export const getTags = () =>
     api.get('/api/tags').then((r) => r.data.tags);
+
+export const createTag = (name) =>
+    api.post('/api/tags', { name }).then((r) => r.data.tag);

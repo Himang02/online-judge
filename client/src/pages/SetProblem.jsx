@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar.jsx';
-import { createProblem, publishProblem, addTestCase } from '../api/problems';
+import { createProblem, publishProblem, addTestCase, getTags, createTag } from '../api/problems';
 
 const STEPS = ['Problem Info', 'Examples', 'Test Cases', 'Preview'];
 
@@ -151,6 +151,141 @@ export default function SetProblem() {
     );
 }
 
+function TagsInput({ tagIds, onChange }) {
+    const [allTags, setAllTags] = useState([]);
+    const [selectedTags, setSelectedTags] = useState([]);
+    const [inputValue, setInputValue] = useState('');
+    const [open, setOpen] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        getTags().then(setAllTags).catch(() => {});
+    }, []);
+
+    const filtered = allTags.filter(
+        (t) => t.name.includes(inputValue.toLowerCase()) && !selectedTags.some((s) => s.id === t.id)
+    );
+    const exactMatch = allTags.some((t) => t.name === inputValue.toLowerCase().trim());
+    const showCreate = inputValue.trim().length > 0 && !exactMatch;
+
+    const addTag = (tag) => {
+        const next = [...selectedTags, tag];
+        setSelectedTags(next);
+        onChange(next.map((t) => t.id));
+        setInputValue('');
+        setOpen(false);
+    };
+
+    const removeTag = (id) => {
+        const next = selectedTags.filter((t) => t.id !== id);
+        setSelectedTags(next);
+        onChange(next.map((t) => t.id));
+    };
+
+    const handleCreate = async () => {
+        const name = inputValue.trim();
+        if (!name || creating) return;
+        setCreating(true);
+        try {
+            const tag = await createTag(name);
+            setAllTags((prev) => [...prev, tag]);
+            addTag(tag);
+        } catch {
+            const existing = allTags.find((t) => t.name === name.toLowerCase());
+            if (existing) addTag(existing);
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            if (filtered.length > 0) addTag(filtered[0]);
+            else if (showCreate) handleCreate();
+        }
+        if (e.key === 'Backspace' && !inputValue && selectedTags.length > 0) {
+            removeTag(selectedTags[selectedTags.length - 1].id);
+        }
+        if (e.key === 'Escape') setOpen(false);
+    };
+
+    return (
+        <div style={{ position: 'relative' }}>
+            <div
+                onClick={() => inputRef.current?.focus()}
+                style={{
+                    display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+                    padding: '6px 8px', borderRadius: 7, border: '1px solid var(--border)',
+                    background: 'var(--surface2)', minHeight: 38, cursor: 'text',
+                }}
+            >
+                {selectedTags.map((t) => (
+                    <span key={t.id} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 500,
+                        background: 'rgba(99,102,241,0.15)', color: '#818cf8',
+                        border: '1px solid rgba(99,102,241,0.3)',
+                    }}>
+                        {t.name}
+                        <button
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); removeTag(t.id); }}
+                            style={{ background: 'none', border: 'none', color: '#818cf8', cursor: 'pointer', padding: '0 0 0 2px', lineHeight: 1, fontSize: 15 }}
+                        >×</button>
+                    </span>
+                ))}
+                <input
+                    ref={inputRef}
+                    value={inputValue}
+                    onChange={(e) => { setInputValue(e.target.value); setOpen(true); }}
+                    onFocus={() => setOpen(true)}
+                    onBlur={() => setTimeout(() => setOpen(false), 150)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={selectedTags.length === 0 ? 'Type to search or create tags…' : ''}
+                    style={{
+                        background: 'none', border: 'none', outline: 'none', color: 'var(--text)',
+                        fontSize: 13, flexGrow: 1, minWidth: 140, padding: '2px 0',
+                    }}
+                />
+            </div>
+            {open && (filtered.length > 0 || showCreate) && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                    background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 7,
+                    marginTop: 4, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+                }}>
+                    {filtered.map((t) => (
+                        <div
+                            key={t.id}
+                            onMouseDown={() => addTag(t)}
+                            style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', color: 'var(--text)' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface2)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                            {t.name}
+                        </div>
+                    ))}
+                    {showCreate && (
+                        <div
+                            onMouseDown={handleCreate}
+                            style={{
+                                padding: '8px 12px', fontSize: 13, cursor: 'pointer', color: '#818cf8',
+                                borderTop: filtered.length > 0 ? '1px solid var(--border)' : 'none',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface2)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                            {creating ? 'Creating…' : `+ Create "${inputValue.trim()}"`}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function StepInfo({ info, setInfoField, setInfo }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 700 }}>
@@ -170,6 +305,10 @@ function StepInfo({ info, setInfoField, setInfo }) {
                         );
                     })}
                 </div>
+            </Field>
+            <Field label="Tags">
+                <TagsInput tagIds={info.tagIds} onChange={(ids) => setInfo((p) => ({ ...p, tagIds: ids }))} />
+                <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Press Enter or comma to add. New tags are created automatically.</span>
             </Field>
             <Field label="Problem Statement">
                 <textarea style={{ ...inputStyle, minHeight: 90, resize: 'vertical' }} value={info.description} onChange={setInfoField('description')} placeholder="Describe the problem…" />

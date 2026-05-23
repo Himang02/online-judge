@@ -4,6 +4,11 @@
 
 # ---- builder ----
 FROM node:20-alpine AS builder
+# openssl CLI is required by Prisma to detect the OpenSSL version at
+# runtime and pick the matching query engine binary. Without it,
+# Prisma defaults to the openssl-1.1.x binary which fails on
+# Alpine 3.19+ (libssl.so.1.1 no longer present).
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 # Install deps from the lockfile for a deterministic build.
@@ -25,6 +30,7 @@ COPY server.js ./
 
 # ---- runtime ----
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 # Copy the entire built app (node_modules incl. Prisma CLI + generated

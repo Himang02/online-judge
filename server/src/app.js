@@ -4,6 +4,10 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const app = express();
 
+// Trust one reverse-proxy hop (Caddy) so req.ip reflects the real client.
+// Required for per-IP rate limiting to work behind the proxy.
+app.set('trust proxy', 1);
+
 const authRoutes = require('./modules/auth/authRoutes');
 const problemRoutes = require('./modules/problems/problemRoutes');
 const tagRoutes = require('./modules/problems/tagRoutes');

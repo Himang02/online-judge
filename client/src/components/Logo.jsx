@@ -1,12 +1,12 @@
 export default function Logo({ size = 26 }) {
     const boxR = Math.round(size * 0.18);
-    const bracketFs = Math.round(size * 0.55);
-    const aFs = Math.round(size * 0.70);
+    const bracketFs = Math.round(size * 0.36);
+    const aFs = Math.round(size * 0.48);
     const wordFs = Math.round(size * 0.60);
 
     return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: size * 0.3, userSelect: 'none' }}>
-            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} overflow="hidden">
                 <rect width={size} height={size} rx={boxR} fill="#060f1e" />
                 <text
                     x="50%"

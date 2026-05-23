@@ -21,7 +21,7 @@ const LANGUAGE_CONFIG = {
         execCmd: './solution',
     },
     JAVA: {
-        image: 'openjdk:17-alpine',
+        image: 'eclipse-temurin:17-alpine',
         filename: 'Solution.java',
         compileCmd: 'javac Solution.java',
         execCmd: 'java Solution',
@@ -138,4 +138,4 @@ async function runCode(submissionId, code, language, testCases, timeLimit, memor
     return verdict;
 }
 
-module.exports = { runCode };
+module.exports = { runCode, LANGUAGE_CONFIG };

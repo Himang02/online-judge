@@ -40,6 +40,9 @@ model Problem {
   id String @id @default(uuid())
   title String @unique
   description String
+  inputFormat  String?
+  outputFormat String?
+  constraints  String?
   difficulty  Difficulty
   status      ProblemStatus @default(DRAFT)
   timeLimit   Int           @default(2000)
@@ -80,6 +83,7 @@ model TestCase {
 
   input String
   expectedOutput String
+  explanation    String?
 
   isSample Boolean
 }
@@ -97,6 +101,8 @@ model Submission {
   code      String
   language  Language
   verdict   Verdict  @default(PENDING)
+  runtime   Int?
+  memory    Int?
 
   createdAt DateTime @default(now())
 }

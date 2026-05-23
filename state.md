@@ -1,0 +1,103 @@
+# Deployment State Tracker
+
+> Living checklist for the deployment work described in [deployment-plan.md](deployment-plan.md). Update inline as you finish things. Use ✅ done · ⏳ in progress · ⚠️ blocked · ⏭️ deferred · ❌ won't do.
+
+**Last updated:** 2026-05-23
+
+---
+
+## Pre-flight cleanup (local repo work)
+
+| Status | Task | Notes |
+|---|---|---|
+| ⏳ | Delete `express.static('../..')` in [server/src/app.js:17](server/src/app.js#L17) | Info-disclosure bug. See deployment-plan §3.1. |
+| ⏳ | Gitignore `client/.env`, `git rm --cached`, add `client/.env.example` | §3.2 |
+| ⏳ | CORS allowlist — rename `FRONTEND_URL` → `FRONTEND_URLS`, accept CSV | §3.3 |
+| ⏳ | Add `helmet` to server | `npm i helmet`, one-liner. §3.4 |
+| ⏳ | Auth rate-limit on `/login` + `/register` (per IP) | Model on existing `aiRateLimit.js`. §3.5 |
+| ⏭️ | Warn-on-fallback for AI rate limiter when Redis down | Polish. §3.6 |
+| ⏳ | Write `server/Dockerfile` (multi-stage, non-root) | §3.7 |
+| ⏳ | Write `execution-service/Dockerfile` (alpine + docker-cli) | §3.8 |
+| ⏳ | Write `docker-compose.yml` (redis + server + exec-service) | §3.9 |
+| ⏳ | Local end-to-end test: `docker compose up` + register/submit/AC | §3.11 |
+
+## Phase A — Backend on EC2, HTTP, local frontend
+| Status | Task | Notes |
+|---|---|---|
+| ⏳ | Launch t3.micro + elastic IP + security group | §4.A.1 |
+| ⏳ | Install Docker + compose plugin on box | §4.A.2 |
+| ⏳ | Provision Neon project, capture pooled DATABASE_URL | §4.A.3 |
+| ⏳ | `git clone`, write `.env.production` files, `docker compose up -d` | §4.A.4 |
+| ⏳ | `prisma migrate deploy` + `seedTags.js` against Neon | §4.A.4 |
+| ⏳ | Local frontend test against `http://<elastic-ip>:4000` | §4.A.5 |
+
+## Phase B — Domain + TLS
+| Status | Task | Notes |
+|---|---|---|
+| ⏳ | Buy domain (if not owned), create `api.` A record → elastic IP | §4.B.1 |
+| ⏳ | Add Caddy service + `Caddyfile` to compose, persist `caddy_data` volume | §4.B.2 |
+| ⏳ | Update `FRONTEND_URLS`, restart server | §4.B.3 |
+| ⏳ | Close port 4000 in security group | §4.B.4 |
+| ⏳ | `curl https://api.yourdomain.com/ping` returns `pong` with valid cert | §4.B.3 |
+
+## Phase C — Frontend on Vercel
+| Status | Task | Notes |
+|---|---|---|
+| ⏳ | `vercel link` to `client/`, set `VITE_API_BASE_URL` env var | §4.C.1 |
+| ⏳ | `vercel --prod` | §4.C.2 |
+| ⏳ | Add Vercel URL to `FRONTEND_URLS` on EC2, restart | §4.C.3 |
+| ⏳ | Full register → publish → submit → AC roundtrip from Vercel | §4.C.4 |
+
+---
+
+## Code health — already done (baseline)
+| Status | Item |
+|---|---|
+| ✅ | Auth module wired (register, login, JWT, bcrypt, timing-safe login) |
+| ✅ | Problems module wired (CRUD, draft/publish, role-gated, ownership checks) |
+| ✅ | Tags module wired (M2M with problems) |
+| ✅ | Submissions module wired (create, list, by-problem, by-id) |
+| ✅ | AI review module wired (Gemini, prompt-injection-resistant, rate-limited) |
+| ✅ | BullMQ queue + execution-service worker integration |
+| ✅ | Execution service supports C, C++, Java, Python via Docker |
+| ✅ | Sandbox flags: `--network none`, `--memory`, `--pids-limit`, `--init`, `--rm` |
+| ✅ | Inner + outer timeout enforcement (TLE detection) |
+| ✅ | Catchup reconciler on server startup ([catchup.js](server/src/shared/configs/catchup.js)) |
+| ✅ | SSE verdict streaming with race-condition guard ([submissionController.js:68-82](server/src/modules/submissions/submissionController.js#L68-L82)) |
+| ✅ | Global Express error handler + custom AppError |
+| ✅ | All routes input-validated with express-validator |
+| ✅ | Prisma schema + 7 migrations clean |
+| ✅ | `server/.env` and `execution-service/.env` properly gitignored |
+
+## Deferred — not blockers for deploy
+| Status | Item | Why deferred |
+|---|---|---|
+| ⏭️ | Real-time verdict push end-to-end verification | SSE code looks correct; just verify it after deploy. If broken, fall back to polling. |
+| ⏭️ | "▶ Run" button handler in [ProblemDetail.jsx:161-163](client/src/pages/ProblemDetail.jsx#L161-L163) | Dead UI element. Either wire to a "compile-only" backend endpoint or hide the button. |
+| ⏭️ | Search bar on [Problems.jsx:64-72](client/src/pages/Problems.jsx#L64-L72) | Commented out as "temporarily disabled". Re-enable once backend `search` query param is verified. |
+| ⏭️ | CE vs RTE detection brittleness ([executor.js:121-123](execution-service/src/executor.js#L121-L123)) | Has a TODO already. Use an `OJ_EXEC_START` stderr marker pattern. |
+| ⏭️ | Test cases sent inside BullMQ payload | Fine at current scale. Switch to "fetch from DB by submission ID" if Redis memory becomes an issue. |
+| ⏭️ | Convert `seedTags.js` to Prisma `prisma/seed.ts` | Cosmetic; current script works. |
+| ⏭️ | Add tests (unit + integration) | Out of scope for deploy. Add gradually as features land. |
+| ⏭️ | TypeScript migration | Big-bang refactor; not blocking. |
+| ⏭️ | Cleanup: `client/index.html` title still `vite-temp`, empty `App.css` | One-line fixes; do whenever. |
+| ⏭️ | CloudWatch alarms, Sentry, log aggregation | Set up after first week of running. |
+| ⏭️ | CI/CD pipeline (GitHub Actions) | After deploy works manually. |
+| ⏭️ | Staging environment | When prod gets enough traffic that breaking it costs you something. |
+
+## Known limitations of the planned deploy
+| Item | Mitigation |
+|---|---|
+| Single t3.micro, no multi-AZ | Acceptable for learning project. Document recovery time (~10 min to relaunch). |
+| Single Redis with no persistence | [catchup.js](server/src/shared/configs/catchup.js) reconciles after restart. Data loss limited to in-flight submissions. |
+| DooD = exec-service has host docker socket | Acceptable trade-off. Production would use dedicated exec host. Documented in [deployment-plan.md §6](deployment-plan.md). |
+| No DDoS protection (L7) | Add Cloudflare in front of elastic IP if needed. |
+| No automated DB backups beyond Neon's defaults | Neon free tier has point-in-time recovery for 7 days. Acceptable for now. |
+
+---
+
+## How to update this file
+- Change `⏳` → `✅` when a task is done. Add a one-line note if anything surprised you (commit hash, gotcha, link to LEARNING.md entry).
+- If something blocks you, change to `⚠️` and add the blocker in the Notes column.
+- New issues discovered during deploy → add a row under the relevant phase.
+- Keep this file in sync with [deployment-plan.md](deployment-plan.md); if the plan changes, update both.

@@ -20,41 +20,85 @@ async function getProblemById(id, userId) {
         throw new AppError('Problem not found', 404);
     }
 
-    return problem;
+    const [prev, next] = await Promise.all([
+        prismaClient.problem.findFirst({
+            where: { status: 'PUBLISHED', createdAt: { lt: problem.createdAt } },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true },
+        }),
+        prismaClient.problem.findFirst({
+            where: { status: 'PUBLISHED', createdAt: { gt: problem.createdAt } },
+            orderBy: { createdAt: 'asc' },
+            select: { id: true },
+        }),
+    ]);
+
+    return { ...problem, prevId: prev?.id ?? null, nextId: next?.id ?? null };
 }
 
-async function getProblems(tags) {
-    const problems = await prismaClient.problem.findMany({
-        where: {
-            status: 'PUBLISHED',
-            ...(tags && tags.length > 0 && {
-                tags: {
-                    some: {
-                        name: { in: tags },
-                    },
-                },
-            }),
-        },
-        select: {
-            id: true,
-            title: true,
-            difficulty: true,
-            tags: {
-                select: {
-                    id: true,
-                    name: true,
-                },
+async function getProblems({ tags, difficulty, search, page = 1, limit = 20 } = {}) {
+    const skip = (Math.max(1, page) - 1) * limit;
+
+    const where = {
+        status: 'PUBLISHED',
+        ...(difficulty && { difficulty }),
+        ...(search && { title: { contains: search, mode: 'insensitive' } }),
+        ...(tags && tags.length > 0 && {
+            tags: { some: { name: { in: tags } } },
+        }),
+    };
+
+    const [problems, total] = await Promise.all([
+        prismaClient.problem.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { createdAt: 'asc' },
+            select: {
+                id: true,
+                title: true,
+                difficulty: true,
+                tags: { select: { id: true, name: true } },
             },
-        },
+        }),
+        prismaClient.problem.count({ where }),
+    ]);
+
+    const problemIds = problems.map((p) => p.id);
+
+    const [acCounts, totalCounts] = await Promise.all([
+        prismaClient.submission.groupBy({
+            by: ['problemId'],
+            where: { problemId: { in: problemIds }, verdict: 'AC' },
+            _count: { id: true },
+        }),
+        prismaClient.submission.groupBy({
+            by: ['problemId'],
+            where: { problemId: { in: problemIds } },
+            _count: { id: true },
+        }),
+    ]);
+
+    const acMap = new Map(acCounts.map((r) => [r.problemId, r._count.id]));
+    const totalMap = new Map(totalCounts.map((r) => [r.problemId, r._count.id]));
+
+    const result = problems.map((p) => {
+        const t = totalMap.get(p.id) ?? 0;
+        return {
+            ...p,
+            acceptanceRate: t > 0 ? Math.round(((acMap.get(p.id) ?? 0) / t) * 100) : null,
+        };
     });
 
-    return problems;
+    return { problems: result, total, page: Number(page), totalPages: Math.ceil(total / limit) };
 }
 
 
 
 async function createProblem(data) {
-    const { title, description, difficulty, createdBy, tagIds = [] } = data;
+    const { title, description, inputFormat, outputFormat, constraints, difficulty, createdBy, tagIds = [] } = data;
+    const timeLimit = data.timeLimit !== undefined ? parseInt(data.timeLimit, 10) : undefined;
+    const memoryLimit = data.memoryLimit !== undefined ? parseInt(data.memoryLimit, 10) : undefined;
 
     const titleTaken = await isProblemTitleTaken(title);
     if (titleTaken) {
@@ -76,7 +120,12 @@ async function createProblem(data) {
         data: {
             title,
             description,
+            ...(inputFormat !== undefined && { inputFormat }),
+            ...(outputFormat !== undefined && { outputFormat }),
+            ...(constraints !== undefined && { constraints }),
             difficulty,
+            ...(timeLimit !== undefined && { timeLimit }),
+            ...(memoryLimit !== undefined && { memoryLimit }),
             createdBy,
             tags: {
                 connect: tagIds.map((id) => ({ id })),
@@ -101,7 +150,7 @@ async function updateProblem(problemId, userId, data) {
         throw new AppError('Forbidden', 403);
     }
 
-    const { title, description, difficulty, tagIds } = data;
+    const { title, description, inputFormat, outputFormat, constraints, difficulty, timeLimit, memoryLimit, tagIds } = data;
 
     if (tagIds && tagIds.length > 0) {
         const existingTags = await prismaClient.tag.findMany({
@@ -119,7 +168,12 @@ async function updateProblem(problemId, userId, data) {
         data: {
             ...(title !== undefined && { title }),
             ...(description !== undefined && { description }),
+            ...(inputFormat !== undefined && { inputFormat }),
+            ...(outputFormat !== undefined && { outputFormat }),
+            ...(constraints !== undefined && { constraints }),
             ...(difficulty !== undefined && { difficulty }),
+            ...(timeLimit !== undefined && { timeLimit }),
+            ...(memoryLimit !== undefined && { memoryLimit }),
             ...(tagIds !== undefined && tagIds.length > 0 && { tags: { set: tagIds.map((id) => ({ id })) } }),
         },
         include: {

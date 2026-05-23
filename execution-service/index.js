@@ -1,9 +1,12 @@
 require('dotenv').config();
-const worker = require('./src/worker');
+const { pullImages } = require('./src/warmup');
 
-console.log('Execution service started, waiting for jobs...');
+pullImages().then(() => {
+    const worker = require('./src/worker');
+    console.log('[Execution Service] Ready — waiting for jobs.');
 
-process.on('SIGTERM', async () => {
-    await worker.close();
-    process.exit(0);
+    process.on('SIGTERM', async () => {
+        await worker.close();
+        process.exit(0);
+    });
 });

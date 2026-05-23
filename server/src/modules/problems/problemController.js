@@ -1,13 +1,14 @@
 const problemService = require('./problemService');
 
 async function getProblems(req, res, next) {
+    const { difficulty, search, page } = req.query;
     const tags = req.query.tag
         ? Array.isArray(req.query.tag) ? req.query.tag : [req.query.tag]
         : [];
 
     try {
-        const problems = await problemService.getProblems(tags);
-        return res.status(200).json({ problems });
+        const result = await problemService.getProblems({ tags, difficulty, search, page });
+        return res.status(200).json(result);
     } catch (err) {
         next(err);
     }
@@ -26,11 +27,11 @@ async function getProblemById(req, res, next) {
 }
 
 async function createProblem(req, res, next) {
-    const { title, description, difficulty, tagIds } = req.body;
+    const { title, description, inputFormat, outputFormat, constraints, difficulty, timeLimit, memoryLimit, tagIds } = req.body;
     const createdBy = req.user.id;
 
     try {
-        const problem = await problemService.createProblem({ title, description, difficulty, createdBy, tagIds });
+        const problem = await problemService.createProblem({ title, description, inputFormat, outputFormat, constraints, difficulty, timeLimit, memoryLimit, createdBy, tagIds });
         return res.status(201).json({ problem });
     } catch (err) {
         next(err);

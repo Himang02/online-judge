@@ -27,10 +27,11 @@ async function getSubmissionById(req, res, next) {
 
 async function getUserSubmissions(req, res, next) {
     const userId = req.user.id;
+    const { verdict, language, search, page } = req.query;
 
     try {
-        const submissions = await submissionService.getUserSubmissions(userId);
-        return res.status(200).json({ submissions });
+        const result = await submissionService.getUserSubmissions(userId, { verdict, language, search, page });
+        return res.status(200).json(result);
     } catch (err) {
         next(err);
     }

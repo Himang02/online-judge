@@ -61,15 +61,15 @@ export default function Problems() {
 
                 {/* Content */}
                 <div style={{ flex: 1, padding: '18px 20px', overflowY: 'auto' }}>
-                    {/* Search bar */}
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                    {/* Search bar — temporarily disabled */}
+                    {/* <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
                         <input
                             style={inputStyle}
                             placeholder="🔍  Search problems…"
                             value={search}
                             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                         />
-                    </div>
+                    </div> */}
 
                     {/* Table */}
                     {loading ? (

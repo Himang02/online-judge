@@ -154,9 +154,12 @@ export default function SetProblem() {
 function TagsInput({ onChange }) {
     const [allTags, setAllTags] = useState([]);
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [fetchError, setFetchError] = useState('');
 
     useEffect(() => {
-        getTags().then(setAllTags).catch(() => {});
+        getTags()
+            .then(setAllTags)
+            .catch((err) => setFetchError(err.response?.data?.error ?? err.message ?? 'Failed to load tags'));
     }, []);
 
     const toggle = (tag) => {
@@ -167,6 +170,10 @@ function TagsInput({ onChange }) {
             return next;
         });
     };
+
+    if (fetchError) {
+        return <span style={{ fontSize: 12, color: '#f87171' }}>Error loading tags: {fetchError}</span>;
+    }
 
     if (allTags.length === 0) {
         return <span style={{ fontSize: 12, color: 'var(--muted)' }}>No tags available yet.</span>;

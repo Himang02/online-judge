@@ -14,7 +14,7 @@ async function addTestCase(problemId, userId, data) {
         throw new AppError('Forbidden', 403);
     }
 
-    const { input, expectedOutput, isSample = false } = data;
+    const { input, expectedOutput, isSample = false, explanation } = data;
 
     return prismaClient.testCase.create({
         data: {
@@ -22,6 +22,7 @@ async function addTestCase(problemId, userId, data) {
             input,
             expectedOutput,
             isSample,
+            ...(explanation !== undefined && { explanation }),
         },
     });
 }

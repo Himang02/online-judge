@@ -2,7 +2,7 @@
 
 > Living checklist for the deployment work described in [deployment-plan.md](deployment-plan.md). Update inline as you finish things. Use ✅ done · ⏳ in progress · ⚠️ blocked · ⏭️ deferred · ❌ won't do.
 
-**Last updated:** 2026-05-23
+**Last updated:** 2026-05-24
 
 ---
 
@@ -10,16 +10,16 @@
 
 | Status | Task | Notes |
 |---|---|---|
-| ⏳ | Delete `express.static('../..')` in [server/src/app.js:17](server/src/app.js#L17) | Info-disclosure bug. See deployment-plan §3.1. |
-| ⏳ | Gitignore `client/.env`, `git rm --cached`, add `client/.env.example` | §3.2 |
-| ⏳ | CORS allowlist — rename `FRONTEND_URL` → `FRONTEND_URLS`, accept CSV | §3.3 |
-| ⏳ | Add `helmet` to server | `npm i helmet`, one-liner. §3.4 |
-| ⏳ | Auth rate-limit on `/login` + `/register` (per IP) | Model on existing `aiRateLimit.js`. §3.5 |
-| ⏭️ | Warn-on-fallback for AI rate limiter when Redis down | Polish. §3.6 |
-| ⏳ | Write `server/Dockerfile` (multi-stage, non-root) | §3.7 |
-| ⏳ | Write `execution-service/Dockerfile` (alpine + docker-cli) | §3.8 |
-| ⏳ | Write `docker-compose.yml` (redis + server + exec-service) | §3.9 |
-| ⏳ | Local end-to-end test: `docker compose up` + register/submit/AC | §3.11 |
+| ✅ | Delete `express.static('../..')` in [server/src/app.js:17](server/src/app.js#L17) | Commit `45b6a1b` (snapshot). |
+| ✅ | Gitignore `client/.env`, `git rm --cached`, add `client/.env.example` | Commit `cb13854`. Also `34bd028` extended exec-service `.gitignore` for `.env.*`. |
+| ✅ | CORS allowlist — rename `FRONTEND_URL` → `FRONTEND_URLS`, accept CSV | Commit `45b6a1b`. Function-form `origin` callback. |
+| ✅ | Add `helmet` to server | Commit `45b6a1b`. Placed before CORS. |
+| ✅ | Auth rate-limit on `/login` + `/register` (per IP) | Commit `55c5456`. 5/15min login, 3/hr register. Also set `trust proxy: 1` for Caddy. |
+| ⏭️ | Warn-on-fallback for AI rate limiter when Redis down | Polish. Skipped to focus on deploy path. |
+| ✅ | Write `server/Dockerfile` (multi-stage, non-root) | Commit `9a9f31f`. Plus `d565625` fixed Prisma+Alpine OpenSSL 3.x compat (binaryTargets + apk add openssl). |
+| ✅ | Write `execution-service/Dockerfile` (alpine + docker-cli) | Commit `59ed0b6`. Runs as root for socket access; security trade-off documented. |
+| ✅ | Write `docker-compose.yml` (redis + server + exec-service) | Commit `f8df1a0`. DooD socket mount on exec-service. |
+| ✅ | Local end-to-end test: `docker compose up` + register/submit/AC | Verified 2026-05-24. Full pipeline: register → login → submit Python "sum of two numbers" → AC verdict received. DooD container spawning confirmed in exec-service logs. |
 
 ## Phase A — Backend on EC2, HTTP, local frontend
 | Status | Task | Notes |
@@ -68,6 +68,13 @@
 | ✅ | All routes input-validated with express-validator |
 | ✅ | Prisma schema + 7 migrations clean |
 | ✅ | `server/.env` and `execution-service/.env` properly gitignored |
+
+## Discovered during local testing
+
+| Status | Item | Notes |
+|---|---|---|
+| ⚠️ | Per-container startup ~15s on Docker Desktop (Windows) | WSL2 file system overhead. **Expected to be <1s on native Linux (EC2).** Not a code bug. |
+| ⚠️ | `runtime` and `memory` fields stay `null` on AC verdicts | Exec-service doesn't populate these despite schema having them. Cosmetic for now. |
 
 ## Deferred — not blockers for deploy
 | Status | Item | Why deferred |

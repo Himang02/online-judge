@@ -157,18 +157,13 @@ export default function ProblemDetail() {
                                 <option key={l.value} value={l.value}>{l.label}</option>
                             ))}
                         </select>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button style={{ ...toolbarCtrlStyle, border: '1px solid rgba(96,165,250,0.35)', background: 'transparent', color: 'var(--accent-muted)' }}>
-                                ▶ Run
-                            </button>
-                            <button
-                                onClick={handleSubmit}
-                                disabled={submitting}
-                                style={{ ...toolbarCtrlStyle, background: 'var(--accent)', color: '#fff', border: 'none' }}
-                            >
-                                {submitting ? 'Submitting…' : 'Submit'}
-                            </button>
-                        </div>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={submitting}
+                            style={{ ...toolbarCtrlStyle, background: 'var(--accent)', color: '#fff', border: 'none' }}
+                        >
+                            {submitting ? 'Submitting…' : 'Submit'}
+                        </button>
                     </div>
 
                     {/* Editor */}

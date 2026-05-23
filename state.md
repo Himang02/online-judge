@@ -24,12 +24,12 @@
 ## Phase A — Backend on EC2, HTTP, local frontend
 | Status | Task | Notes |
 |---|---|---|
-| ⏳ | Launch t3.micro + elastic IP + security group | §4.A.1 |
-| ⏳ | Install Docker + compose plugin on box | §4.A.2 |
-| ⏳ | Provision Neon project, capture pooled DATABASE_URL | §4.A.3 |
-| ⏳ | `git clone`, write `.env.production` files, `docker compose up -d` | §4.A.4 |
-| ⏳ | `prisma migrate deploy` + `seedTags.js` against Neon | §4.A.4 |
-| ⏳ | Local frontend test against `http://<elastic-ip>:4000` | §4.A.5 |
+| ✅ | Launch t3.micro + elastic IP + security group | Region: **ap-south-1 (Mumbai)**, AMI: Amazon Linux 2023. EIP: `13.202.181.71`. SG opens 22 (My IP), 4000 (Phase A only), 80, 443. |
+| ✅ | Install Docker + compose plugin on box | Docker 25.0.14, Compose v2.29.0. `ec2-user` added to docker group. |
+| ✅ | Provision Neon project, capture pooled DATABASE_URL | Region: ap-southeast-1 (Singapore). Cross-region adds ~80ms per query — acceptable for now. |
+| ✅ | `git clone`, write `.env.production` files, `docker compose up -d` | SCP'd both `.env.production` files (not in git). |
+| ✅ | `prisma migrate deploy` + `seedTags.js` against Neon | No-op: DB already current from local test (same Neon branch). |
+| ✅ | Local frontend test against `http://13.202.181.71:4000` | Verified via curl: full register/login/submit/AC roundtrip in <2s. Per-container time on native Linux is ~sub-second vs ~15s on Docker Desktop Windows. |
 
 ## Phase B — Domain + TLS
 | Status | Task | Notes |

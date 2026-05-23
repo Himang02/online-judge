@@ -1,0 +1,8 @@
+# Online Judge — Phase B reverse proxy + auto-TLS via Let's Encrypt.
+# Caddy listens on :80/:443, fetches a cert for the domain on first
+# start, redirects HTTP -> HTTPS automatically, and proxies all
+# traffic to the server container on the internal compose network.
+
+algoarena.duckdns.org {
+    reverse_proxy server:4000
+}

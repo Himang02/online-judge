@@ -22,10 +22,25 @@ services:
       REDIS_PORT: "6379"
     depends_on:
       - redis
+    # Phase B: no host port mapping. Caddy is the only public entry
+    # point; it proxies to server:4000 over the internal network.
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
     ports:
-      # Phase A: expose 4000 to the host so the laptop frontend can hit it
-      # directly. Remove this once Caddy fronts the server in Phase B.
-      - "4000:4000"
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Mount the Caddyfile read-only.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persist Let's Encrypt certs and Caddy state across restarts —
+      # without this, every `docker compose down` re-fetches certs
+      # and Let's Encrypt rate-limits at 5/week per domain.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - server
 
   execution-service:
     build: ./execution-service
@@ -41,3 +56,7 @@ services:
       # to the host's Docker daemon and spawn sibling user-code
       # containers. See deployment-plan.md §6.
       - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -13,16 +13,28 @@ const problemRoutes = require('./modules/problems/problemRoutes');
 const tagRoutes = require('./modules/problems/tagRoutes');
 const submissionRoutes = require('./modules/submissions/submissionRoutes');
 
-const allowedOrigins = (process.env.FRONTEND_URLS || 'http://localhost:5173')
+// Entries in FRONTEND_URLS may be exact origins (https://app.example.com)
+// or wildcard patterns using '*' for variable segments
+// (e.g. https://myapp-*-team.vercel.app to cover all Vercel preview URLs).
+const allowedOriginEntries = (process.env.FRONTEND_URLS || 'http://localhost:5173')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+
+const exactOrigins = allowedOriginEntries.filter((s) => !s.includes('*'));
+const originPatterns = allowedOriginEntries
+    .filter((s) => s.includes('*'))
+    .map((s) => {
+        const escaped = s.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*');
+        return new RegExp('^' + escaped + '$');
+    });
 
 app.use(helmet());
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
+        if (exactOrigins.includes(origin)) return callback(null, true);
+        if (originPatterns.some((re) => re.test(origin))) return callback(null, true);
         callback(new Error(`CORS: origin not allowed: ${origin}`));
     },
     credentials: true,

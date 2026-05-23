@@ -9,9 +9,12 @@ const LANGUAGE_CONFIG = {
         execCmd: 'python solution.py',
     },
     CPP: {
-        image: 'gcc:latest',
+        // Custom image with bits/stdc++.h precompiled as a PCH.
+        // Must be built once on the host: see images/oj-gcc/Dockerfile.
+        // The -std=c++17 flag must match the PCH build so g++ picks it up.
+        image: 'oj-gcc:latest',
         filename: 'solution.cpp',
-        compileCmd: 'g++ solution.cpp -o solution',
+        compileCmd: 'g++ -std=c++17 solution.cpp -o solution',
         execCmd: './solution',
     },
     C: {

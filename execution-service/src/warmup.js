@@ -23,10 +23,19 @@ function pullImage(image) {
 }
 
 async function pullImages() {
-    const images = [...new Set(Object.values(LANGUAGE_CONFIG).map((c) => c.image))];
-    console.log(`[Warmup] Pre-pulling ${images.length} image(s): ${images.join(', ')}`);
+    const all = [...new Set(Object.values(LANGUAGE_CONFIG).map((c) => c.image))];
+    // Convention: images prefixed with 'oj-' are locally-built customizations
+    // (e.g. oj-gcc with bits/stdc++.h precompiled) and aren't on any registry.
+    // They must be built once on the host before starting this service.
+    const pullable = all.filter((img) => !img.startsWith('oj-'));
+    const local = all.filter((img) => img.startsWith('oj-'));
 
-    await Promise.all(images.map(pullImage));
+    if (local.length) {
+        console.log(`[Warmup] Skipping pull for local-built image(s): ${local.join(', ')}`);
+    }
+    console.log(`[Warmup] Pre-pulling ${pullable.length} image(s): ${pullable.join(', ')}`);
+
+    await Promise.all(pullable.map(pullImage));
 
     console.log('[Warmup] All image pulls complete.');
 }

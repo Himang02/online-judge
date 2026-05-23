@@ -1,0 +1,62 @@
+# Online Judge — full backend stack (Phase A).
+# Services share the default compose bridge network and resolve each
+# other by service name: server -> redis:6379, exec -> redis:6379.
+#
+# Phase B will add a `caddy` service for TLS termination and the
+# server's `ports:` mapping below will be removed (Caddy becomes the
+# only public-facing service).
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # No ports: published — Redis is reachable only on the compose network.
+
+  server:
+    build: ./server
+    restart: unless-stopped
+    env_file: ./server/.env.production
+    environment:
+      # Force the in-container DNS name regardless of what the env file says.
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    depends_on:
+      - redis
+    # Phase B: no host port mapping. Caddy is the only public entry
+    # point; it proxies to server:4000 over the internal network.
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Mount the Caddyfile read-only.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persist Let's Encrypt certs and Caddy state across restarts —
+      # without this, every `docker compose down` re-fetches certs
+      # and Let's Encrypt rate-limits at 5/week per domain.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - server
+
+  execution-service:
+    build: ./execution-service
+    restart: unless-stopped
+    env_file: ./execution-service/.env.production
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    depends_on:
+      - redis
+    volumes:
+      # Docker-out-of-Docker: this lets the container's `docker` CLI talk
+      # to the host's Docker daemon and spawn sibling user-code
+      # containers. See deployment-plan.md §6.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  caddy_data:
+  caddy_config:

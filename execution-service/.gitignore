@@ -1,0 +1,6 @@
+node_modules/
+
+# Env files — never commit real values. Use .env.example to document required vars.
+.env
+.env.*
+!.env.example

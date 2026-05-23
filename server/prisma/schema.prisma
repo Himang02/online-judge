@@ -1,0 +1,138 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/generated/prisma"
+  // "native" covers local dev (Windows/macOS/Linux glibc).
+  // "linux-musl-openssl-3.0.x" is required for node:20-alpine 3.19+
+  // which ships OpenSSL 3.x — the default linux-musl binary links
+  // against libssl.so.1.1 which is no longer present on Alpine.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+ 
+// User Table
+model User {
+  id String @id @default(uuid())
+  username String @unique
+  email String @unique
+  name String
+  role Role @default(USER)
+  password String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  problems    Problem[]
+  submissions Submission[]
+}
+
+enum Role {
+  USER
+  PROBLEM_SETTER
+}
+
+
+// Problem Table - id, title, description, difficulty, tags, createdBy, createdAt, updatedAt
+model Problem {
+  id String @id @default(uuid())
+  title String @unique
+  description String
+  inputFormat  String?
+  outputFormat String?
+  constraints  String?
+  difficulty  Difficulty
+  status      ProblemStatus @default(DRAFT)
+  timeLimit   Int           @default(2000)
+  memoryLimit Int           @default(256)
+  
+  createdBy String
+  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tags        Tag[]
+  testCases   TestCase[]
+  submissions Submission[]
+
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ProblemStatus {
+  DRAFT
+  PUBLISHED
+}
+
+
+// TestCase model
+model TestCase {
+  id String @id @default(uuid())
+  
+  problemId String
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+
+  input String
+  expectedOutput String
+  explanation    String?
+
+  isSample Boolean
+}
+
+// Submission model
+model Submission {
+  id        String   @id @default(uuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId String
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  code      String
+  language  Language
+  verdict   Verdict  @default(PENDING)
+  runtime   Int?
+  memory    Int?
+
+  createdAt DateTime @default(now())
+}
+
+enum Language {
+  C
+  CPP
+  JAVA
+  PYTHON
+}
+
+enum Verdict {
+  PENDING
+  AC
+  WA
+  TLE
+  MLE
+  RTE
+  CE
+  IE
+}
+
+// Tag table
+model Tag{
+  id String @id @default(uuid())
+  name String @unique
+  problems Problem[]
+}

@@ -91,7 +91,7 @@ async function runCode(submissionId, code, language, testCases, timeLimit, memor
             '--pids-limit', '50',
             config.image,
             'sh', '-c', cmd,
-        ], testCase.input, timeLimit + 30000, containerName);
+        ], testCase.input, timeLimit + 60000, containerName);
 
         const elapsed = Date.now() - containerStart;
         log(submissionId, `Test case ${i + 1} completed in ${elapsed}ms | exit=${result.code}`);

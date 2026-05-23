@@ -34,11 +34,11 @@
 ## Phase B — Domain + TLS
 | Status | Task | Notes |
 |---|---|---|
-| ⏳ | Buy domain (if not owned), create `api.` A record → elastic IP | §4.B.1 |
-| ⏳ | Add Caddy service + `Caddyfile` to compose, persist `caddy_data` volume | §4.B.2 |
-| ⏳ | Update `FRONTEND_URLS`, restart server | §4.B.3 |
-| ⏳ | Close port 4000 in security group | §4.B.4 |
-| ⏳ | `curl https://api.yourdomain.com/ping` returns `pong` with valid cert | §4.B.3 |
+| ✅ | Domain — DuckDNS subdomain `algoarena.duckdns.org` → `13.202.181.71` | Free DDNS; works fine for Let's Encrypt HTTP-01 challenge. |
+| ✅ | Add Caddy service + `Caddyfile` to compose, persist `caddy_data` volume | Commit `ef75bf1`. Caddy 2-alpine, named volumes for cert persistence. |
+| ⏭️ | Update `FRONTEND_URLS`, restart server | No change needed for Phase B — laptop test still uses `http://localhost:5173`. Will add Vercel URL in Phase C. |
+| ⚠️ | Close port 4000 in AWS security group | Optional. Compose no longer publishes :4000 so there's no listener, but the SG rule is unused. Clean up via AWS console: EC2 → Security Groups → online-judge-sg → remove the Custom TCP 4000 inbound rule. |
+| ✅ | `curl https://algoarena.duckdns.org/ping` returns `pong` with valid cert | Cert obtained in ~11s on first request. SSL handshake + ping under 1s end-to-end. Full submission roundtrip AC verified. |
 
 ## Phase C — Frontend on Vercel
 | Status | Task | Notes |
